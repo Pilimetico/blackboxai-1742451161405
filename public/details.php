@@ -64,6 +64,21 @@ if (isset($_GET['tickets'])) {
             from { opacity: 0; }
             to { opacity: 1; }
         }
+        /* Scrollbar styles */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -115,14 +130,15 @@ if (isset($_GET['tickets'])) {
 
         <!-- Ticket Search -->
         <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <div class="flex space-x-4">
+            <div class="flex flex-col md:flex-row gap-4">
                 <div class="flex-1">
                     <input type="text" id="ticketSearch" 
                            placeholder="Buscar número específico..." 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <button onclick="searchTicket()" 
-                        class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+                        class="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center">
+                    <i class="fas fa-search mr-2"></i>
                     Buscar
                 </button>
             </div>
@@ -134,7 +150,7 @@ if (isset($_GET['tickets'])) {
             <h3 class="text-xl font-semibold mb-6">Selecciona tus números</h3>
             
             <!-- Range Filter -->
-            <div class="flex space-x-4 mb-6">
+            <div class="flex flex-wrap gap-4 mb-6">
                 <?php
                 $ranges = [];
                 $rangeSize = min(100, ceil($draw['total_tickets'] / 5));
@@ -145,15 +161,15 @@ if (isset($_GET['tickets'])) {
                 ?>
                 <?php foreach ($ranges as $range): ?>
                 <button onclick="filterRange(<?php echo $range[0]; ?>, <?php echo $range[1]; ?>)"
-                        class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded transition-colors duration-200">
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-xl transition-colors duration-200 text-sm">
                     <?php echo str_pad($range[0], 3, '0', STR_PAD_LEFT); ?> - 
                     <?php echo str_pad($range[1], 3, '0', STR_PAD_LEFT); ?>
                 </button>
                 <?php endforeach; ?>
             </div>
 
-            <!-- Tickets -->
-            <div id="ticketsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <!-- Tickets Container with Scroll -->
+            <div id="ticketsGrid" class="h-[500px] overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 rounded-xl bg-gray-50 scrollbar-thin">
                 <?php
                 $stmt = $db->prepare("
                     SELECT ticket_number, reserved, blocked_until 
@@ -175,7 +191,7 @@ if (isset($_GET['tickets'])) {
                      data-number="<?php echo $ticket['ticket_number']; ?>"
                      onclick="toggleTicket(this, '<?php echo $ticket['ticket_number']; ?>')"
                      data-range-start="<?php echo (int)$ticket['ticket_number']; ?>">
-                    <div class="bg-gray-100 hover:bg-gray-200 rounded-lg p-4 text-center cursor-pointer">
+                    <div class="bg-white hover:bg-gray-200 rounded-xl shadow-sm p-4 text-center cursor-pointer transition-all duration-200 hover:scale-105">
                         <span class="text-xl font-bold <?php echo $isReserved || $isBlocked ? 'text-gray-400' : 'text-gray-800'; ?>">
                             <?php echo $ticket['ticket_number']; ?>
                         </span>
@@ -185,15 +201,16 @@ if (isset($_GET['tickets'])) {
             </div>
 
             <!-- Selected Tickets Summary -->
-            <div id="selectedTickets" class="mt-8 p-4 bg-gray-100 rounded-lg hidden">
+            <div id="selectedTickets" class="mt-8 p-4 bg-gray-100 rounded-xl hidden">
                 <h4 class="font-semibold mb-2">Boletos Seleccionados:</h4>
                 <div id="selectedTicketsList" class="mb-4"></div>
-                <div class="flex justify-between items-center">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                     <button onclick="clearSelection()" class="text-red-600 hover:text-red-700">
                         <i class="fas fa-trash"></i> Limpiar selección
                     </button>
                     <button onclick="openReservationModal()" 
-                            class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">
+                            class="w-full md:w-auto bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 transform hover:scale-105 shadow-md">
+                        <i class="fas fa-check mr-2"></i>
                         Apartar Boletos
                     </button>
                 </div>
@@ -201,51 +218,61 @@ if (isset($_GET['tickets'])) {
         </div>
     </main>
 
-    <!-- Reservation Modal -->
-    <div id="reservationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="reservation-modal bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
-            <h3 class="text-2xl font-bold text-gray-800 mb-6">Confirmar Reserva</h3>
-            
-            <?php if ($settings['block_tickets']): ?>
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-6">
-                <p class="text-yellow-700">
-                    <i class="fas fa-clock mr-2"></i>
-                    Los números seleccionados serán bloqueados por <?php echo $settings['block_minutes']; ?> minutos mientras se confirma el pago.
-                </p>
+    <!-- Lucky Machine Modal -->
+    <div id="luckyMachineModal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="lucky-machine-modal bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
+            <div class="text-center">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Máquina de la Suerte</h3>
+                <div class="slot-machine-animation mb-6">
+                    <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMGNiYjM4YTYyZDY4YmYzYjJiNzY1ZGY1ZWM5ZDM3ZmQxNjc2ZjE4YiZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/XGXN3Qc1xg9dYnQbPx/giphy.gif" 
+                         alt="Slot Machine" 
+                         class="w-48 h-48 mx-auto slot-machine rounded-lg shadow-lg">
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                    <button onclick="generateTickets(1)" 
+                            class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                        1 Ticket
+                    </button>
+                    <button onclick="generateTickets(5)" 
+                            class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                        5 Tickets
+                    </button>
+                    <button onclick="generateTickets(10)" 
+                            class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                        10 Tickets
+                    </button>
+                    <button onclick="generateTickets(20)" 
+                            class="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                        20 Tickets
+                    </button>
+                    <button onclick="generateTickets(50)" 
+                            class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                        50 Tickets
+                    </button>
+                </div>
+                <div id="generatedTickets" class="hidden">
+                    <h4 class="text-lg font-semibold mb-2">Tickets Generados:</h4>
+                    <div id="ticketsList" class="bg-gray-100 p-4 rounded-xl mb-4 max-h-40 overflow-y-auto scrollbar-thin"></div>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <button onclick="saveTickets()" 
+                                class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                            Guardar Boletos
+                        </button>
+                        <button onclick="spinAgain()" 
+                                class="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-md">
+                            Volver a Girar
+                        </button>
+                    </div>
+                </div>
             </div>
-            <?php endif; ?>
-
-            <form id="reservationForm" onsubmit="submitReservation(event)" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                    <input type="text" name="firstname" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
-                    <input type="text" name="lastname" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-                    <input type="tel" name="phone" required
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="flex justify-end space-x-4 pt-4">
-                    <button type="button" onclick="closeReservationModal()"
-                            class="px-4 py-2 text-gray-600 hover:text-gray-800">
-                        Cancelar
-                    </button>
-                    <button type="submit"
-                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">
-                        Confirmar Reserva
-                    </button>
-                </div>
-            </form>
+            <button onclick="closeLuckyMachine()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
         </div>
     </div>
 
     <script>
+        let currentDrawId = null;
         let selectedTickets = <?php echo json_encode($preselectedTickets); ?>;
 
         function toggleTicket(element, number) {
@@ -272,7 +299,7 @@ if (isset($_GET['tickets'])) {
             if (selectedTickets.length > 0) {
                 container.classList.remove('hidden');
                 list.innerHTML = selectedTickets.map(ticket => 
-                    `<span class="inline-block bg-white rounded px-3 py-1 m-1">${ticket}</span>`
+                    `<span class="inline-block bg-white rounded-xl px-3 py-1 m-1 shadow-sm">${ticket}</span>`
                 ).join('');
             } else {
                 container.classList.add('hidden');
@@ -310,18 +337,18 @@ if (isset($_GET['tickets'])) {
                     
                     if (data.available) {
                         resultDiv.innerHTML = `
-                            <div class="bg-green-100 border-l-4 border-green-500 p-4">
+                            <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-xl">
                                 <div class="flex justify-between items-center">
                                     <p class="text-green-700">El número ${number} está disponible!</p>
                                     <button onclick="selectSearchedTicket('${number}')"
-                                            class="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600">
+                                            class="bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 transition-all duration-200">
                                         Seleccionar
                                     </button>
                                 </div>
                             </div>`;
                     } else {
                         resultDiv.innerHTML = `
-                            <div class="bg-red-100 border-l-4 border-red-500 p-4">
+                            <div class="bg-red-100 border-l-4 border-red-500 p-4 rounded-xl">
                                 <p class="text-red-700">El número ${number} no está disponible.</p>
                             </div>`;
                     }
@@ -337,38 +364,46 @@ if (isset($_GET['tickets'])) {
             document.getElementById('ticketSearch').value = '';
         }
 
-        function openReservationModal() {
-            if (selectedTickets.length === 0) return;
-            document.getElementById('reservationModal').classList.remove('hidden');
-            document.getElementById('reservationModal').classList.add('flex');
+        function openLuckyMachine(drawId) {
+            currentDrawId = drawId;
+            document.getElementById('luckyMachineModal').classList.remove('hidden');
+            document.getElementById('luckyMachineModal').classList.add('flex');
+            document.getElementById('generatedTickets').classList.add('hidden');
         }
 
-        function closeReservationModal() {
-            document.getElementById('reservationModal').classList.add('hidden');
-            document.getElementById('reservationModal').classList.remove('flex');
+        function closeLuckyMachine() {
+            document.getElementById('luckyMachineModal').classList.add('hidden');
+            document.getElementById('luckyMachineModal').classList.remove('flex');
+            currentDrawId = null;
+            selectedTickets = [];
         }
 
-        function submitReservation(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            formData.append('draw_id', <?php echo $drawId; ?>);
-            formData.append('tickets', selectedTickets.join(','));
+        function generateTickets(quantity) {
+            fetch(`/ajax/generate_tickets.php?draw_id=${currentDrawId}&quantity=${quantity}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        selectedTickets = data.tickets;
+                        const ticketsList = document.getElementById('ticketsList');
+                        ticketsList.innerHTML = selectedTickets.map(ticket => 
+                            `<span class="inline-block bg-white rounded-xl px-3 py-1 m-1 shadow-sm">${ticket}</span>`
+                        ).join('');
+                        document.getElementById('generatedTickets').classList.remove('hidden');
+                    } else {
+                        alert(data.message);
+                    }
+                });
+        }
 
-            fetch('/ajax/reserve_tickets.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = data.whatsapp_url;
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    alert(data.message);
-                }
-            });
+        function saveTickets() {
+            if (selectedTickets.length > 0) {
+                window.location.href = `details.php?id=${currentDrawId}&tickets=${selectedTickets.join(',')}`;
+            }
+        }
+
+        function spinAgain() {
+            selectedTickets = [];
+            document.getElementById('generatedTickets').classList.add('hidden');
         }
 
         // Inicializar vista
